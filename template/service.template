@@ -1,0 +1,131 @@
+{{- $baseService := .Name }}
+{{- $servicePackage := .ProtoPackage }}
+{{- $serverName := printf "%sServer" .Name }}
+{{- $serviceName := printf "%sService" .Name -}}
+//Code generated DO NOT EDIT
+package {{.Package}}
+
+import (
+    "context"
+    "io"
+{{ range .Imports }}
+    {{.}}
+{{- end}}
+
+    "google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+)
+
+{{- if .First}}
+
+type grpcError interface {
+    Code() codes.Code
+}
+
+func returnGRPCError(err error) error {
+	if gerr, ok := err.(grpcError); ok {
+		return status.Error(gerr.Code(), err.Error())
+	}
+
+	return status.Error(codes.Internal, err.Error())
+}
+{{- end}}
+
+type {{$serverName}} struct {
+    svc {{$serviceName}}
+}
+
+type {{ $serviceName }} interface {
+{{- range .Methods }}
+{{- if .ServerStreaming }}
+    {{.Name}}(ctx context.Context, req *{{- printf "%s.%s" .Input.Pkg .Input.Name -}}) ({{- printf "%sCursor" .Output.Name -}}, error)
+{{- else if .ClientStreaming }}
+    Begin{{.Name}}(ctx context.Context) ({{.Name}}r, error)
+{{- else }}
+    {{.Name}}(ctx context.Context, req *{{- printf "%s.%s" .Input.Pkg .Input.Name -}}) (*{{- printf "%s.%s" .Output.Pkg .Output.Name -}}, error)
+{{- end}}
+{{- end }}
+}
+{{ range .TypeMetadata -}}
+{{- if .ServerStreamed }}
+type {{ .Name }}Cursor interface {
+    Next() bool
+    Current() *{{ .Pkg }}.{{ .Name }}
+    Err() error
+}
+{{- end }}
+{{- end }}
+
+{{- range .Methods }}
+{{ if .ClientStreaming }}
+type {{.Name}}r interface {
+    Next(*{{- printf "%s.%s" .Input.Pkg .Input.Name -}}) error
+    Complete() (*{{- printf "%s.%s" .Output.Pkg .Output.Name -}}, error)
+    Cancel()
+}
+
+func (s {{$serverName}}) {{.Name}}(stream {{$servicePackage}}.{{$baseService}}_{{.Name}}Server) error {
+    r, err := s.svc.Begin{{.Name}}(stream.Context())
+	if err != nil {
+		return returnGRPCError(err)
+	}
+	defer r.Cancel()
+
+	for {
+		c, err := stream.Recv()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return returnGRPCError(err)
+		}
+
+		err = r.Next(c)
+		if err != nil {
+			return returnGRPCError(err)
+		}
+	}
+
+	resp, err := r.Complete()
+	if err != nil {
+		return returnGRPCError(err)
+	}
+
+	err = stream.SendAndClose(resp)
+	if err != nil {
+		return returnGRPCError(err)
+	}
+
+	return nil
+}
+{{- else if .ServerStreaming}}
+func (s {{$serverName}}) {{.Name}}(req *{{- printf "%s.%s" .Input.Pkg .Input.Name -}}, stream {{$servicePackage}}.{{$baseService}}_{{.Name}}Server) error {
+    c, err := s.svc.{{.Name}}(stream.Context(), req)
+    if err != nil {
+        return returnGRPCError(err)
+    }
+
+    for c.Next() {
+        o := c.Current()
+        err := stream.Send(o)
+        if err != nil {
+            return returnGRPCError(err)
+        }
+    }
+
+    if err := c.Err(); err != nil {
+        return returnGRPCError(err)
+    }
+
+    return nil
+}
+{{- else }}
+func (s {{$serverName}}) {{.Name}}(ctx context.Context, req *{{- printf "%s.%s" .Input.Pkg .Input.Name -}}) (*{{- printf "%s.%s" .Output.Pkg .Output.Name -}}, error) {
+    resp, err := s.svc.{{.Name}}(ctx, req)
+    if err != nil {
+        return nil, returnGRPCError(err)
+    }
+
+    return resp, nil
+}
+{{- end }}
+{{- end }}
