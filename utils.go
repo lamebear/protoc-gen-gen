@@ -1,4 +1,4 @@
-package goserve
+package gserve
 
 import (
 	"strconv"

@@ -1,0 +1,24 @@
+syntax="proto3";
+
+option go_package="github.com/Nais777/gserve/example";
+
+package example;
+
+import "google/protobuf/empty.proto";
+
+message ID {
+    int32 ID = 1;
+}
+
+message User {
+    example.ID ID = 1;
+    string FirstName = 2;
+    string LastName = 3;
+}
+
+service Users {
+    rpc User(example.ID) returns (example.User) {}
+    rpc Users(google.protobuf.Empty) returns (stream example.User) {}
+    rpc BatchUpdate(stream example.User) returns (stream example.User) {}
+    rpc BatchDelete(stream example.ID) returns (google.protobuf.Empty) {}
+}

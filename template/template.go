@@ -3,10 +3,35 @@ package template
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"text/template"
 )
+
+func NewTemplateRender(templatePath string) (*template.Template, error) {
+	if templatePath != "" {
+		return loadFromFile(templatePath)
+	}
+
+	return loadDefaultTemplate()
+}
+
+func loadFromFile(templatePath string) (*template.Template, error) {
+	tmp, err := template.ParseFiles(templatePath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse template: %v", err)
+	}
+
+	return tmp, nil
+}
+
+func loadDefaultTemplate() (*template.Template, error) {
+	tmp, err := template.New("main").Parse(defaultTemplate())
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse template: %v", err)
+	}
+
+	return tmp, nil
+}
 
 func defaultTemplate() string {
 	buf := bytes.Buffer{}
@@ -20,17 +45,4 @@ func defaultTemplate() string {
 	}
 
 	return buf.String()
-}
-
-func NewTemplateRender(templatePath string) (*template.Template, error) {
-	if templatePath != "" {
-		return nil, errors.New("Rendering a custom template not yet supported")
-	}
-
-	tmp, err := template.New("main").Parse(defaultTemplate())
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse template: %v", err)
-	}
-
-	return tmp, nil
 }

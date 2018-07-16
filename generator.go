@@ -1,4 +1,4 @@
-package goserve
+package gserve
 
 import (
 	"bytes"
@@ -16,6 +16,7 @@ type generator struct {
 	genFiles        map[string]bool
 	packageWrappers map[string]*fileWrapper
 	renderer        Renderer
+	options         Options
 }
 
 type templatePayload struct {
@@ -51,12 +52,17 @@ type methodPayload struct {
 func (g *generator) Generate() (*plugin.CodeGeneratorResponse, error) {
 	resp := &plugin.CodeGeneratorResponse{}
 
+	generatedPackage := "grpc"
+	if g.options.Package != "" {
+		generatedPackage = g.options.Package
+	}
+
 	for name := range g.genFiles {
 		d := g.fDescriptions[name]
 
 		for i, s := range d.Service {
 			payload := templatePayload{
-				Package: "grpc",
+				Package: generatedPackage,
 				First:   (i == 0),
 			}
 
@@ -187,13 +193,14 @@ type Renderer interface {
 	Execute(io.Writer, interface{}) error
 }
 
-func Generate(req *plugin.CodeGeneratorRequest, renderer Renderer) (*plugin.CodeGeneratorResponse, error) {
+func Generate(req *plugin.CodeGeneratorRequest, options Options, renderer Renderer) (*plugin.CodeGeneratorResponse, error) {
 	g := generator{
 		request:         req,
 		fDescriptions:   make(map[string]*fileWrapper),
 		genFiles:        make(map[string]bool),
 		packageWrappers: make(map[string]*fileWrapper),
 		renderer:        renderer,
+		options:         options,
 	}
 
 	for _, f := range req.ProtoFile {
