@@ -60,7 +60,7 @@ protoc \
     example.proto
 ```
 
-`tempate`: path to a custom template used for generation of files. See [custom templates](#payload) for additional information
+`tempate`: path to a custom template used for generation of files. See [custom templates](#template) for additional information
 
 ```
   protoc \
