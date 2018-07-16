@@ -24,10 +24,11 @@ gServe aims to ease the creation of go gRPC servers (and eventualy clients) by g
 
 ## Installation
 
-To install gServe, simply run:
+To install gServe, run:
 
 ```sh
 go get github.com/Nais777/gserve
+go install github.com/Nais777/gserve/...
 ```
 
 gServe contains the command `protoc-gen-server` that will generate boilerplate go code for implementing gRPC servers. gServe will eventually contain a command to generate boilerplate client code also (see [Roadmap](#roadmap)).
