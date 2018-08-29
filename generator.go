@@ -32,6 +32,8 @@ type templatePayload struct {
 type typeMetadata struct {
 	methodType
 
+	IsReceived     bool
+	IsSent         bool
 	ClientStreamed bool
 	ServerStreamed bool
 }
@@ -59,6 +61,7 @@ func (g *generator) Generate() (*plugin.CodeGeneratorResponse, error) {
 
 	for name := range g.genFiles {
 		d := g.fDescriptions[name]
+		serviceImport := importString(*d)
 
 		for i, s := range d.Service {
 			payload := templatePayload{
@@ -70,7 +73,7 @@ func (g *generator) Generate() (*plugin.CodeGeneratorResponse, error) {
 			payload.ProtoPackage = string(pkg)
 
 			payload.Name = s.GetName()
-			payload.Imports = serviceImports(s, g.packageWrappers)
+			payload.Imports = serviceImports(s, serviceImport, g.packageWrappers)
 			payload.Methods = methodPayloads(d.GetPackage(), s.GetName(), s.Method, g.packageWrappers)
 			payload.TypeMetadata = typeMetadatas(s.Method, g.packageWrappers)
 
@@ -92,28 +95,38 @@ func (g *generator) Generate() (*plugin.CodeGeneratorResponse, error) {
 	return resp, nil
 }
 
-func serviceImports(sd *descriptor.ServiceDescriptorProto, w map[string]*fileWrapper) []string {
-	imports := []string{}
+func serviceImports(sd *descriptor.ServiceDescriptorProto, serviceImport string, w map[string]*fileWrapper) []string {
+	importMap := map[string]bool{
+		serviceImport: true,
+	}
 	requiredPackages := make(map[string]bool)
 	for _, m := range sd.Method {
-		pkg, _ := splitType(m.GetInputType())
-		requiredPackages[pkg] = true
-		pkg, _ = splitType(m.GetOutputType())
-		requiredPackages[pkg] = true
+		pkg, typ := splitType(m.GetInputType())
+		requiredPackages[fmt.Sprintf("%s.%s", pkg, typ)] = true
+		pkg, typ = splitType(m.GetOutputType())
+		requiredPackages[fmt.Sprintf("%s.%s", pkg, typ)] = true
 	}
 
 	for pkg := range requiredPackages {
 		importDescription := w[pkg]
 
-		path, pkg, _ := importDescription.goPackageOption()
-		if strings.HasSuffix(string(path), string(pkg)) {
-			imports = append(imports, path.String())
-		} else {
-			imports = append(imports, fmt.Sprintf("%s %s", pkg, path.String()))
-		}
+		importMap[importString(*importDescription)] = true
+	}
+
+	imports := make([]string, 0, len(importMap))
+	for importStr := range importMap {
+		imports = append(imports, importStr)
 	}
 
 	return imports
+}
+
+func importString(fw fileWrapper) string {
+	path, pkg, _ := fw.goPackageOption()
+	if strings.HasSuffix(string(path), string(pkg)) {
+		return path.String()
+	}
+	return fmt.Sprintf("%s %s", pkg, path.String())
 }
 
 func methodPayloads(pkg string, svcName string, protoMethods []*descriptor.MethodDescriptorProto, w map[string]*fileWrapper) []methodPayload {
@@ -135,7 +148,7 @@ func methodPayloads(pkg string, svcName string, protoMethods []*descriptor.Metho
 
 func resolvedType(ts string, packageWrappers map[string]*fileWrapper) methodType {
 	protoPackage, ty := splitType(ts)
-	_, pkg, _ := packageWrappers[string(protoPackage)].goPackageOption()
+	_, pkg, _ := packageWrappers[fmt.Sprintf("%s.%s", protoPackage, ty)].goPackageOption()
 	return methodType{
 		Pkg:  string(pkg),
 		Name: ty,
@@ -154,6 +167,7 @@ func typeMetadatas(methods []*descriptor.MethodDescriptorProto, w map[string]*fi
 			}
 		}
 
+		ty.IsReceived = true
 		ty.ClientStreamed = ty.ClientStreamed || m.GetClientStreaming()
 
 		tmp[iType] = ty
@@ -166,6 +180,7 @@ func typeMetadatas(methods []*descriptor.MethodDescriptorProto, w map[string]*fi
 			}
 		}
 
+		ty.IsSent = true
 		ty.ServerStreamed = ty.ServerStreamed || m.GetServerStreaming()
 
 		tmp[oType] = ty
@@ -206,7 +221,14 @@ func Generate(req *plugin.CodeGeneratorRequest, options Options, renderer Render
 	for _, f := range req.ProtoFile {
 		w := &fileWrapper{FileDescriptorProto: f}
 		g.fDescriptions[f.GetName()] = w
-		g.packageWrappers[f.GetPackage()] = w
+
+		for _, m := range f.MessageType {
+			g.packageWrappers[fmt.Sprintf("%s.%s", f.GetPackage(), m.GetName())] = w
+		}
+
+		for _, e := range f.EnumType {
+			g.packageWrappers[fmt.Sprintf("%s.%s", f.GetPackage(), e.GetName())] = w
+		}
 	}
 
 	for _, name := range req.FileToGenerate {
