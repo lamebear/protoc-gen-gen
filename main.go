@@ -5,8 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/Nais777/gserve"
-	"github.com/Nais777/gserve/template"
+	"github.com/Nais777/protoc-gen-gen/template"
 	"github.com/gogo/protobuf/proto"
 	p "github.com/golang/protobuf/protoc-gen-go/plugin"
 )
@@ -24,7 +23,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	options, err := gserve.ParseOptions(req.Parameter)
+	options, err := ParseOptions(req.Parameter)
 	if err != nil {
 		log.Print(err.Error())
 		os.Exit(1)
@@ -36,7 +35,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	resp, err := gserve.Generate(req, options, renderer)
+	resp, err := Generate(req, options, renderer)
 	if err != nil {
 		log.Print(err.Error())
 		os.Exit(1)

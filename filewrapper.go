@@ -1,4 +1,4 @@
-package gserve
+package main
 
 import (
 	"path"

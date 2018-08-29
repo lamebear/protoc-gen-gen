@@ -1,4 +1,4 @@
-package gserve
+package main
 
 import (
 	"errors"
@@ -25,6 +25,10 @@ func ParseOptions(optionString *string) (Options, error) {
 		if err != nil {
 			return o, err
 		}
+	}
+
+	if o.TemplatePath == "" {
+		return o, errors.New("path to template must be set")
 	}
 
 	return o, nil
